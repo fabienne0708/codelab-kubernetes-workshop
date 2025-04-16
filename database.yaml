@@ -1,0 +1,69 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: shop-database-configmap
+data:
+  POSTGRES_DB: "shop"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: shop-database-secret
+stringData:
+  POSTGRES_PASSWORD: "shop"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: shop-database-service
+spec:
+  type: ClusterIP
+  selector:
+    app: shop-database-label
+  ports:
+  - port: 5432
+    targetPort: 5432
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: shop-database
+spec:
+  selector:
+    matchLabels:
+      app: shop-database-label
+  serviceName: shop-database-label
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        app: shop-database-label
+    spec:
+      containers:
+      - name: shop-database-label
+        image: registry.gitlab.com/codelab-kubernetes/apps/shop-database:latest
+        envFrom:
+        - configMapRef:
+            name: shop-database-configmap
+        - secretRef:
+            name: shop-database-secret
+        resources:
+            requests:
+              memory: "64Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "500m"
+        ports:
+        - containerPort: 5432
+        volumeMounts:
+        - name: www
+          mountPath: /usr/share/nginx/html
+  volumeClaimTemplates:
+  - metadata:
+      name: postgres-data 
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 1Gi
